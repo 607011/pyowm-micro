@@ -3,7 +3,7 @@
 
 """
 
-    Smart Home Bot for Telegram.
+    Python bindings for OpenWeatherMap API.
 
     Copyright (c) 2017 Oliver Lau <oliver@ersatzworld.net>
     All rights reserved.
