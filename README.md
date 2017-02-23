@@ -1,2 +1,2 @@
-# pyowm-micro
+# pyowm
 Python bindings for OpenWeatherMap API
