@@ -15,7 +15,6 @@ import urllib3
 import json
 from collections import defaultdict
 from datetime import datetime
-from pprint import pprint
 
 
 def degree_to_meteo(deg):
@@ -112,18 +111,18 @@ class WeatherForecast3(Weather):
     def __init__(self, owm_obj=None):
         super(WeatherForecast3, self).__init__(owm_obj)
         self.date = datetime.fromtimestamp(self.weather.get("dt", datetime.now().timestamp()))
-        self.rain = self.weather.get("rain", {}).get("3h") # mm
-        self.snow = self.weather.get("snow", {}).get("3h") # mm
-        self.clouds = self.weather.get("clouds", {}).get("all") # %
-        self.humidity = self.weather.get("main", {}).get("humidity") # %
-        self.pressure = self.weather.get("main", {}).get("pressure") # hPa
-        self.pressure_sea_level = self.weather.get("main", {}).get("sea_level") # hPa
-        self.pressure_ground_level  = self.weather.get("main", {}).get("grnd_level") # hPa
+        self.rain = self.weather.get("rain", {}).get("3h")  # mm
+        self.snow = self.weather.get("snow", {}).get("3h")  # mm
+        self.clouds = self.weather.get("clouds", {}).get("all")  # %
+        self.humidity = self.weather.get("main", {}).get("humidity")  # %
+        self.pressure = self.weather.get("main", {}).get("pressure")  # hPa
+        self.pressure_sea_level = self.weather.get("main", {}).get("sea_level")  # hPa
+        self.pressure_ground_level = self.weather.get("main", {}).get("grnd_level")  # hPa
         self.temp = self.weather.get("main", {}).get("temp")
         self.temp_max = self.weather.get("main", {}).get("temp_max")
         self.temp_min = self.weather.get("main", {}).get("temp_min")
-        self.wind_degrees = self.weather.get("wind", {}).get("deg") # degrees
-        self.wind_speed = 3.6 * self.weather.get("wind", {}).get("speed") # m/s
+        self.wind_degrees = self.weather.get("wind", {}).get("deg")  # degrees
+        self.wind_speed = 3.6 * self.weather.get("wind", {}).get("speed")  # m/s
         self.description = self.weather.get("weather", [{}])[0].get("description")
         self.main = self.weather.get("weather", [{}])[0].get("main")
         self.icon = self.weather.get("weather", [{}])[0].get("icon")
@@ -174,11 +173,11 @@ class OpenWeatherMap(OpenWeatherMapCore):
 
     def forecast(self, city_id, n=None):
         forecasts = super(OpenWeatherMap, self).forecast(city_id, n)["list"]
-        return [ WeatherForecast3(f) for f in forecasts ]
+        return [WeatherForecast3(f) for f in forecasts]
 
     def forecast_daily(self, city_id, days=1):
         forecasts = super(OpenWeatherMap, self).forecast_daily(city_id, days)["list"]
-        return [ WeatherForecast(f) for f in forecasts ]
+        return [WeatherForecast(f) for f in forecasts]
 
 
 BURGDORF_DE = 2941405
