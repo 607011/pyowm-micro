@@ -68,8 +68,8 @@ class CurrentWeather(Weather):
     def __init__(self, owm_obj=None):
         super(CurrentWeather, self).__init__(owm_obj)
         self.date = datetime.fromtimestamp(self.weather.get("dt", datetime.now().timestamp()))
-        self.humidity = self.weather.get("main", {}).get("humidity")
-        self.pressure = self.weather.get("main", {}).get("pressure")
+        self.humidity = self.weather.get("main", {}).get("humidity")  # %
+        self.pressure = self.weather.get("main", {}).get("pressure")  # hPa
         self.temp = self.weather.get("main", {}).get("temp")
         self.temp_max = self.weather.get("main", {}).get("temp_max")
         self.temp_min = self.weather.get("main", {}).get("temp_min")
@@ -80,7 +80,7 @@ class CurrentWeather(Weather):
         self.icon = self.weather.get("weather", [{}])[0]["icon"]
         self.main = self.weather.get("weather", [{}])[0]["main"]
         self.wind_degrees = self.weather.get("wind", {}).get("deg")
-        self.wind_speed = 3.6 * self.weather.get("wind", {}).get("speed")
+        self.wind_speed = 3.6 * self.weather.get("wind", {}).get("speed")  # m/s
         self.url = self.icon_url()
 
 
@@ -88,13 +88,13 @@ class WeatherForecast(Weather):
     def __init__(self, owm_obj=None):
         super(WeatherForecast, self).__init__(owm_obj)
         self.date = datetime.fromtimestamp(self.weather.get("dt", datetime.now().timestamp()))
-        self.rain = self.weather.get("rain")
-        self.snow = self.weather.get("snow")
-        self.clouds = self.weather.get("clouds")
-        self.humidity = self.weather.get("humidity")
-        self.pressure = self.weather.get("pressure")
+        self.rain = self.weather.get("rain")  # mm
+        self.snow = self.weather.get("snow")  # mm
+        self.clouds = self.weather.get("clouds")  # %
+        self.humidity = self.weather.get("humidity")  # %
+        self.pressure = self.weather.get("pressure")  # hPa
         self.wind_degrees = self.weather.get("deg")
-        self.wind_speed = 3.6 * self.weather.get("speed")
+        self.wind_speed = 3.6 * self.weather.get("speed")  # m/s
         self.temp_day = self.weather.get("temp", {}).get("day")
         self.temp_evening = self.weather.get("temp", {}).get("eve")
         self.temp_morning = self.weather.get("temp", {}).get("morn")
@@ -147,8 +147,7 @@ class OpenWeatherMapCore:
             response = http.request("GET", url, fields=params)
         except urllib3.exceptions.HTTPError as e:
             print(e)
-        if response and response.data:
-            return json.loads(response.data.decode("utf-8"))
+        return json.loads(response.data.decode("utf-8")) if response and response.data else {}
 
     def current(self, city_id):
         return self._req(self.base_url + "weather",
@@ -172,12 +171,12 @@ class OpenWeatherMap(OpenWeatherMapCore):
         return CurrentWeather(super(OpenWeatherMap, self).current(city_id))
 
     def forecast(self, city_id, n=None):
-        forecasts = super(OpenWeatherMap, self).forecast(city_id, n)["list"]
-        return [WeatherForecast3(f) for f in forecasts]
+        forecasts = super(OpenWeatherMap, self).forecast(city_id, n).get("list")
+        return [WeatherForecast3(f) for f in forecasts] if type(forecasts) is list else []
 
     def forecast_daily(self, city_id, days=1):
-        forecasts = super(OpenWeatherMap, self).forecast_daily(city_id, days)["list"]
-        return [WeatherForecast(f) for f in forecasts]
+        forecasts = super(OpenWeatherMap, self).forecast_daily(city_id, days).get("list")
+        return [WeatherForecast(f) for f in forecasts] if type(forecasts) is list else []
 
 
 BURGDORF_DE = 2941405
