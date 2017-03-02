@@ -33,8 +33,22 @@ def geo_distance(lat0, lon0, lat1, lon1):
                 Eccentricity * h2 * cos(f) * cos(f) * sin(g) * sin(g))
 
 
-def far_enough(lat1, lon1, lat2, lon2, min_dist=1000):
+'''
+def far_enough(lat1, lon1, lat2, lon2, min_dist=2200):
     return geo_distance(lat1, lon1, lat2, lon2) > min_dist
+'''
+
+
+def far_enough(lat1, lon1, lat2, lon2, min_dist_sqr=7.178e-7):
+    dlat = abs(lat1 - lat2)
+    dlon = abs(lon1 - lon2)
+    return dlat * dlat + dlon * dlon > min_dist_sqr
+
+
+def too_near(lat1, lon1, lat2, lon2, min_dist_sqr=7.178e-7):
+    dlat = abs(lat1 - lat2)
+    dlon = abs(lon1 - lon2)
+    return dlat * dlat + dlon * dlon < min_dist_sqr
 
 
 def main(filename):
@@ -51,13 +65,16 @@ def main(filename):
             print("\rLoading city list ... {:d}%".format(100 * n // n_lines), end="", flush=True)
         print()
 
+    print("Pre-sorting ...")
+    cities.sort(key=lambda city: city["name"])
+
     result = []
     n = 0
     while len(cities) > 0:
         ref_city = cities.pop(0)
         lat = ref_city["coord"]["lat"]
         lon = ref_city["coord"]["lon"]
-        if all(map(lambda city: far_enough(lat, lon, city["coord"]["lat"], city["coord"]["lon"]), cities)):
+        if not any(map(lambda city: too_near(lat, lon, city["coord"]["lat"], city["coord"]["lon"]), cities)):
             result.append(ref_city)
         n += 1
         print("\rFiltering ... {:d}%".format(100 * n // n_lines), end="", flush=True)
@@ -67,9 +84,10 @@ def main(filename):
     print("Sorting ...")
     result.sort(key=lambda k: k["name"])
 
-    print("Writing result to out.json ...")
-    with open("out.json", "w+") as out_file:
-        json.dump(result, out_file, indent=2)
+    out_filename = "city.de.list.reduced.json"
+    print("Writing result to {} ...".format(out_filename))
+    with open(out_filename, "w+") as out_file:
+        json.dump(result, out_file)
 
 
 if __name__ == "__main__":
