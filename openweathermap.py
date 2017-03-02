@@ -38,6 +38,7 @@ class CityList:
                 d = json.loads(line)
                 country = d.get("country")
                 if country:
+                    # TODO: filter out cities with identical names and almost identical geo coordinates
                     self.countries.append(country)
                     self.cities_by_country[country].append(d)
                     self.cities.append(d)
