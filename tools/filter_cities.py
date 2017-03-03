@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 #  -*- coding: utf-8 -*-
 
+# Eliminate redundant entries from city.list.json (fetched from openweathermap.org)
+# and save the result to a JSON file.
+#
+# Copyright (c) 2017 Oliver Lau <oliver@ersatzworld.net>
+# All rights reserved.
+
 import sys
 import json
 from math import sin, cos, atan, sqrt, pi
@@ -14,9 +20,9 @@ class SortedCityCollection(object):
         self._key = (lambda x: x) if key is None else key
         self._id = (lambda x: x) if _id is None else _id
 
-        decorated = sorted([(self._key(item), item, self._id(item)) for item in iterable], key=itemgetter(0))
-        self._keys = list(map(lambda d: d[0], decorated))
-        self._items = list(map(lambda d: d[1], decorated))
+        decorated = sorted([(self._key(item), item) for item in iterable], key=itemgetter(0))
+        self._keys = [k for k, item in decorated]
+        self._items = [item for k, item in decorated]
 
         decorated_ids = sorted([(self._id(item), item) for item in iterable], key=itemgetter(0))
         self._ids = [_id for _id, item in decorated_ids]
@@ -38,7 +44,7 @@ class SortedCityCollection(object):
         self.__init__([], self._key)
 
     def copy(self):
-        return self.__class__(self, self._key)
+        return self.__class__(self, self._key, self._id)
 
     def __len__(self):
         return len(self._items)
@@ -80,21 +86,8 @@ class SortedCityCollection(object):
 
     def remove_by_id(self, _id):
         item = self._items_by_id[_id]
-        i = self.index(item)
-        del self._keys[i]
-        del self._items[i]
         del self._items_by_id[_id]
-
-    def range(self, item_a, item_b):
-        i = bisect_right(self._keys, item_a)
-        j = bisect_left(self._keys, item_b)
-        return self._items[i:j]
-
-    def find(self, k):
-        i = bisect_left(self._keys, k)
-        if i != len(self) and self._keys[i] == k:
-            return self._items[i]
-        raise ValueError("No item found with key equal to: %r".format(k))
+        self.remove(item)
 
     def index(self, item):
         k = self._key(item)
@@ -102,14 +95,21 @@ class SortedCityCollection(object):
         j = bisect_right(self._keys, k)
         return self._items[i:j].index(item) + i
 
+    def find(self, k):
+        i = bisect_left(self._keys, k)
+        if i != len(self) and self._keys[i] == k:
+            return self._items[i]
+        raise ValueError("No item found with key equal to: %r".format(k))
+
     def remove(self, item):
         i = self.index(item)
         del self._keys[i]
         del self._items[i]
 
-
-def deg2rad(a):
-    return a * pi / 180
+    def range(self, item_a, item_b):
+        i = bisect_right(self._keys, item_a)
+        j = bisect_left(self._keys, item_b)
+        return self._items[i:j]
 
 
 class GeoCoord:
@@ -122,9 +122,9 @@ class GeoCoord:
         self.lon = lon
 
     def range_to(self, other):
-        f = deg2rad(self.lat + other.lat) / 2
-        g = deg2rad(self.lat - other.lat) / 2
-        l = deg2rad(self.lon - other.lon) / 2
+        f = pi * (self.lat + other.lat) / 360
+        g = pi * (self.lat - other.lat) / 360
+        l = pi * (self.lon - other.lon) / 360
         s = sin(g) * sin(g) * cos(l) * cos(l) + cos(f) * cos(f) * sin(l) * sin(l)
         c = cos(g) * cos(g) * cos(l) * cos(l) + sin(f) * sin(f) * sin(l) * sin(l)
         if s == 0 or c == 0:
@@ -158,11 +158,11 @@ def main(filename):
             print("\rLoading city list ... {:d}%".format(100 * n // n_lines), end="", flush=True)
         print()
 
-    print("Pre-sorting ...")
+    print("Pre-filtering ...")
     cities_lat = SortedCityCollection(cities, key=lambda c: c["coord"]["lat"], _id=lambda c: c["_id"])
     cities_lon = SortedCityCollection(cities, key=lambda c: c["coord"]["lon"], _id=lambda c: c["_id"])
-    dlat2 = 0.01
-    dlon2 = 0.01
+    dlat2 = 0.003
+    dlon2 = 0.003
 
     result = []
     n = 0
@@ -184,7 +184,7 @@ def main(filename):
     n_removed = n_lines - len(result)
     print("\nRemoved {:d} redundant cities, {:.1f}% remaining.".format(n_removed, 100 - 100 * n_removed // n_lines))
 
-    out_filename = "city.de.list.reduced.json"
+    out_filename = "city.list.reduced.json"
     print("Writing result to {} ...".format(out_filename))
     with open(out_filename, "w+") as out_file:
         json.dump(result, out_file)
