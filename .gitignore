@@ -5,3 +5,4 @@ cities.json
 city.de.list.reduced.json
 city.list.reduced.json
 __pycache__
+.DS_Store
