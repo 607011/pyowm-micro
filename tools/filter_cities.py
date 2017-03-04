@@ -146,7 +146,7 @@ def main(filename):
     cities = []
     cities_by_id = {}
 
-    with open(filename) as city_file:
+    with open(filename, encoding="utf-8") as city_file:
         lines = city_file.readlines()
         n_lines = len(lines)
         n = 0
