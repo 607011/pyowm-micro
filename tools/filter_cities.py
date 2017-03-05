@@ -9,9 +9,11 @@
 
 import sys
 import json
-from math import sin, cos, atan, sqrt, pi
+from math import sin, cos, atan, sqrt, pi, atan2
 from bisect import bisect_left, bisect_right
 from operator import itemgetter
+import pickle
+import bz2
 
 
 class SortedCityCollection(object):
@@ -113,8 +115,8 @@ class SortedCityCollection(object):
 
 
 class GeoCoord:
-    Radius = 6378137.0
-    Radius2 = 6356752.315
+    Radius = 6378.137e3
+    Radius2 = 6356.752315e3
     Eccentricity = (Radius - Radius2) / Radius
 
     def __init__(self, lat, lon):
@@ -122,6 +124,14 @@ class GeoCoord:
         self.lon = lon
 
     def range_to(self, other):
+        φ1 = 8.72664626e-3 * self.lat
+        φ2 = 8.72664626e-3 * other.lat
+        dφ = 8.72664626e-3 * (other.lat - self.lat)
+        dλ = 8.72664626e-3 * (other.lon - self.lon)
+        a = sin(dφ) * sin(dφ) + cos(φ1) * cos(φ2) * sin(dλ) * sin(dλ)
+        return 6371.0072e3 * 2 * atan2(sqrt(a), sqrt(1 - a))
+
+    def range_to_accurate(self, other):
         f = pi * (self.lat + other.lat) / 360
         g = pi * (self.lat - other.lat) / 360
         l = pi * (self.lon - other.lon) / 360
@@ -142,6 +152,14 @@ class GeoCoord:
         return "({:7.5f},{:7.5f})".format(self.lat, self.lon)
 
 
+class City:
+    def __init__(self, city):
+        self.city_id = city["_id"]
+        self.name = city["name"]
+        self.pos = GeoCoord(city["coord"]["lat"], city["coord"]["lon"])
+        self.country = city["country"]
+
+
 def main(filename):
     cities = []
     cities_by_id = {}
@@ -151,16 +169,16 @@ def main(filename):
         n_lines = len(lines)
         n = 0
         for line in lines:
-            city = json.loads(line)
+            city = City(json.loads(line))
             cities.append(city)
-            cities_by_id[city["_id"]] = city
+            cities_by_id[city.city_id] = city
             n += 1
             print("\rLoading city list ... {:d}%".format(100 * n // n_lines), end="", flush=True)
         print()
 
     print("Pre-filtering ...")
-    cities_lat = SortedCityCollection(cities, key=lambda c: c["coord"]["lat"], _id=lambda c: c["_id"])
-    cities_lon = SortedCityCollection(cities, key=lambda c: c["coord"]["lon"], _id=lambda c: c["_id"])
+    cities_lat = SortedCityCollection(cities, key=lambda c: c.pos.lat, _id=lambda c: c.city_id)
+    cities_lon = SortedCityCollection(cities, key=lambda c: c.pos.lon, _id=lambda c: c.city_id)
     dlat2 = 0.003
     dlon2 = 0.003
 
@@ -169,25 +187,24 @@ def main(filename):
     min_dist = 2200.0
     while len(cities) > 0:
         ref_city = cities.pop(0)
-        ref_pos = GeoCoord(ref_city["coord"]["lat"], ref_city["coord"]["lon"])
-        _id = ref_city["_id"]
-        cities_lat.remove_by_id(_id)
-        cities_lon.remove_by_id(_id)
+        ref_pos = ref_city.pos
+        cities_lat.remove_by_id(ref_city.city_id)
+        cities_lon.remove_by_id(ref_city.city_id)
         cities_by_lat = cities_lat.range(ref_pos.lat - dlat2, ref_pos.lat + dlat2)
         cities_by_lon = cities_lon.range(ref_pos.lon - dlon2, ref_pos.lon + dlon2)
-        ids = set(map(lambda c: c["_id"], cities_by_lat)).intersection(map(lambda c: c["_id"], cities_by_lon))
-        merged = map(lambda i: cities_by_id[i], ids)
-        if all(map(lambda c: ref_pos.range_to(GeoCoord(c["coord"]["lat"], c["coord"]["lon"])) > min_dist, merged)):
+        ids = set([c.city_id for c in cities_by_lat]).intersection([c.city_id for c in cities_by_lon])
+        merged = [cities_by_id[i] for i in ids]
+        if all([ref_pos.range_to(c.pos) > min_dist for c in merged]):
             result.append(ref_city)
         n += 1
         print("\rFiltering ... {:d}%".format(100 * n // n_lines), end="", flush=True)
     n_removed = n_lines - len(result)
     print("\nRemoved {:d} redundant cities, {:.1f}% remaining.".format(n_removed, 100 - 100 * n_removed // n_lines))
 
-    out_filename = "city.list.reduced.json"
+    out_filename = "city.list.reduced.pickle.bz2"
     print("Writing result to {} ...".format(out_filename))
-    with open(out_filename, "w+") as out_file:
-        json.dump(result, out_file)
+    with bz2.open(out_filename, "wb", compresslevel=9) as out_file:
+        pickle.dump(result, out_file)
 
 
 if __name__ == "__main__":
