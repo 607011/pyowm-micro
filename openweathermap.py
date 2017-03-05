@@ -13,47 +13,11 @@
 import sys
 import urllib3
 import json
-from collections import defaultdict
 from datetime import datetime
 
 
 def degree_to_meteo(deg):
     return ["N", "NE", "E", "SE", "S", "SW", "W", "NW"][int((deg - 22.5) % 360) // 45]
-
-
-class CityList:
-    def __init__(self, city_list_filename=None):
-        self.countries = []
-        self.cities = []
-        self.cities_by_country = defaultdict(list)
-        if city_list_filename:
-            self.read(city_list_filename)
-
-    def read(self, city_list_filename):
-        with open(city_list_filename) as city_file:
-            lines = city_file.readlines()
-            n_lines = len(lines)
-            n = 0
-            for line in lines:
-                d = json.loads(line)
-                country = d.get("country")
-                if country:
-                    # TODO: filter out cities with identical names and almost identical geo coordinates
-                    self.countries.append(country)
-                    self.cities_by_country[country].append(d)
-                    self.cities.append(d)
-                n += 1
-                yield 100 * n // n_lines
-            self.countries = sorted(list(set(self.countries)))
-
-    def find(self, name, country=None):
-        name = name.lower()
-
-        def _by_name(city):
-            return name in city["name"].lower()
-
-        city_list = self.cities_by_country[country] if country else self.cities
-        return filter(_by_name, city_list)
 
 
 class Weather:
@@ -195,14 +159,16 @@ def main(api_key):
                       forecast.wind_speed,
                       degree_to_meteo(forecast.wind_degrees)))
 
-    """
+    print("Loading city list ... ")
     cities = CityList()
-    for p in cities.read("city.list.json"):
-        print("\rLoading city list ... {:d}%".format(p), end="", flush=True)
-
-    pprint(list(cities.find("Burgdorf")))
-    """
+    cities.read("tools/city.list.reduced.pickle.bz2")
+    for city in cities.find("Hannover"):
+        print(city)
 
 
 if __name__ == "__main__":
+    from city import CityList
     main(sys.argv[1])
+else:
+    from city import CityList
+

@@ -7,13 +7,15 @@
 # Copyright (c) 2017 Oliver Lau <oliver@ersatzworld.net>
 # All rights reserved.
 
-import sys
 import json
-from math import sin, cos, atan, sqrt, pi, atan2
 from bisect import bisect_left, bisect_right
 from operator import itemgetter
 import pickle
 import bz2
+import os
+import sys
+sys.path.insert(0, "{}/..".format(os.getcwd()))
+from city import City, CityList
 
 
 class SortedCityCollection(object):
@@ -114,52 +116,6 @@ class SortedCityCollection(object):
         return self._items[i:j]
 
 
-class GeoCoord:
-    Radius = 6378.137e3
-    Radius2 = 6356.752315e3
-    Eccentricity = (Radius - Radius2) / Radius
-
-    def __init__(self, lat, lon):
-        self.lat = lat
-        self.lon = lon
-
-    def range_to(self, other):
-        φ1 = 8.72664626e-3 * self.lat
-        φ2 = 8.72664626e-3 * other.lat
-        dφ = 8.72664626e-3 * (other.lat - self.lat)
-        dλ = 8.72664626e-3 * (other.lon - self.lon)
-        a = sin(dφ) * sin(dφ) + cos(φ1) * cos(φ2) * sin(dλ) * sin(dλ)
-        return 6371.0072e3 * 2 * atan2(sqrt(a), sqrt(1 - a))
-
-    def range_to_accurate(self, other):
-        f = pi * (self.lat + other.lat) / 360
-        g = pi * (self.lat - other.lat) / 360
-        l = pi * (self.lon - other.lon) / 360
-        s = sin(g) * sin(g) * cos(l) * cos(l) + cos(f) * cos(f) * sin(l) * sin(l)
-        c = cos(g) * cos(g) * cos(l) * cos(l) + sin(f) * sin(f) * sin(l) * sin(l)
-        if s == 0 or c == 0:
-            return -1
-        o = atan(sqrt(s / c))
-        r = sqrt(s / c) / o
-        d = 2 * o * GeoCoord.Radius
-        h1 = (3 * r - 1) / (2 * c)
-        h2 = (3 * r + 1) / (2 * s)
-        return d * (1 +
-                    GeoCoord.Eccentricity * h1 * sin(f) * sin(f) * cos(g) * cos(g) -
-                    GeoCoord.Eccentricity * h2 * cos(f) * cos(f) * sin(g) * sin(g))
-
-    def __str__(self):
-        return "({:7.5f},{:7.5f})".format(self.lat, self.lon)
-
-
-class City:
-    def __init__(self, city):
-        self.city_id = city["_id"]
-        self.name = city["name"]
-        self.pos = GeoCoord(city["coord"]["lat"], city["coord"]["lon"])
-        self.country = city["country"]
-
-
 def main(filename):
     cities = []
     cities_by_id = {}
@@ -179,22 +135,21 @@ def main(filename):
     print("Pre-filtering ...")
     cities_lat = SortedCityCollection(cities, key=lambda c: c.pos.lat, _id=lambda c: c.city_id)
     cities_lon = SortedCityCollection(cities, key=lambda c: c.pos.lon, _id=lambda c: c.city_id)
-    dlat2 = 0.003
-    dlon2 = 0.003
+    dlat2 = 0.003  # TODO: calculate dlat and dlon with respect to latitude;
+    dlon2 = 0.003  # these are pessimistic estimates for geocoords in central Europe
 
     result = []
     n = 0
     min_dist = 2200.0
     while len(cities) > 0:
         ref_city = cities.pop(0)
-        ref_pos = ref_city.pos
         cities_lat.remove_by_id(ref_city.city_id)
         cities_lon.remove_by_id(ref_city.city_id)
-        cities_by_lat = cities_lat.range(ref_pos.lat - dlat2, ref_pos.lat + dlat2)
-        cities_by_lon = cities_lon.range(ref_pos.lon - dlon2, ref_pos.lon + dlon2)
+        cities_by_lat = cities_lat.range(ref_city.pos.lat - dlat2, ref_city.pos.lat + dlat2)
+        cities_by_lon = cities_lon.range(ref_city.pos.lon - dlon2, ref_city.pos.lon + dlon2)
         ids = set([c.city_id for c in cities_by_lat]).intersection([c.city_id for c in cities_by_lon])
         merged = [cities_by_id[i] for i in ids]
-        if all([ref_pos.range_to(c.pos) > min_dist for c in merged]):
+        if all([ref_city.pos.range_to(c.pos) > min_dist for c in merged]):
             result.append(ref_city)
         n += 1
         print("\rFiltering ... {:d}%".format(100 * n // n_lines), end="", flush=True)
