@@ -10,12 +10,23 @@
 import json
 from bisect import bisect_left, bisect_right
 from operator import itemgetter
-import pickle
+from shutil import copyfileobj
 import bz2
 import os
 import sys
-sys.path.insert(0, "{}/..".format(os.getcwd()))
-from city import City, CityList
+sys.path.insert(0, "{}/../..".format(os.getcwd()))
+from pyowm.city import City
+
+
+class JSONCityEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, City):
+            return self.encode(o)
+        else:
+            return json.JSONEncoder.default(self, o)
+
+    def encode(self, o):
+        return {'_id': o.city_id, 'name': o.name, 'coord': {'lat': o.pos.lat, 'lon': o.pos.lon}, 'country': o.country}
 
 
 class SortedCityCollection(object):
@@ -42,7 +53,7 @@ class SortedCityCollection(object):
     def _delkey(self):
         self._setkey(None)
 
-    key = property(_getkey, _setkey, _delkey, "key function")
+    key = property(_getkey, _setkey, _delkey, 'key function')
 
     def clear(self):
         self.__init__([], self._key)
@@ -59,14 +70,11 @@ class SortedCityCollection(object):
     def __iter__(self):
         return iter(self._items)
 
-    def __reversed__(self):
-        return reversed(self._items)
-
     def __repr__(self):
-        return "%s(%r, key=%s)".format(
+        return '%s(%r, key=%s)'.format(
             self.__class__.__name__,
             self._items,
-            getattr(self._given_key, "__name__", repr(self._given_key))
+            getattr(self._given_key, '__name__', repr(self._given_key))
         )
 
     def __reduce__(self):
@@ -86,7 +94,7 @@ class SortedCityCollection(object):
         i = self.index_by_id(_id)
         if i != len(self) and self._ids[i] == _id:
             return self._items_by_id[i]
-        raise ValueError("No item found with _id equal to: %r".format(_id))
+        raise ValueError('No item found with _id equal to: %r'.format(_id))
 
     def remove_by_id(self, _id):
         item = self._items_by_id[_id]
@@ -103,7 +111,7 @@ class SortedCityCollection(object):
         i = bisect_left(self._keys, k)
         if i != len(self) and self._keys[i] == k:
             return self._items[i]
-        raise ValueError("No item found with key equal to: %r".format(k))
+        raise ValueError('No item found with key equal to: %r'.format(k))
 
     def remove(self, item):
         i = self.index(item)
@@ -119,8 +127,7 @@ class SortedCityCollection(object):
 def main(filename):
     cities = []
     cities_by_id = {}
-
-    with open(filename, encoding="utf-8") as city_file:
+    with open(filename, encoding='utf-8') as city_file:
         lines = city_file.readlines()
         n_lines = len(lines)
         n = 0
@@ -130,14 +137,11 @@ def main(filename):
             cities_by_id[city.city_id] = city
             n += 1
             print("\rLoading city list ... {:d}%".format(100 * n // n_lines), end="", flush=True)
-        print()
-
-    print("Pre-filtering ...")
+    print("\nPre-filtering ...")
     cities_lat = SortedCityCollection(cities, key=lambda c: c.pos.lat, _id=lambda c: c.city_id)
     cities_lon = SortedCityCollection(cities, key=lambda c: c.pos.lon, _id=lambda c: c.city_id)
     dlat2 = 0.003  # TODO: calculate dlat and dlon with respect to latitude;
     dlon2 = 0.003  # these are pessimistic estimates for geocoords in central Europe
-
     result = []
     n = 0
     min_dist = 2200.0
@@ -155,12 +159,21 @@ def main(filename):
         print("\rFiltering ... {:d}%".format(100 * n // n_lines), end="", flush=True)
     n_removed = n_lines - len(result)
     print("\nRemoved {:d} redundant cities, {:.1f}% remaining.".format(n_removed, 100 - 100 * n_removed // n_lines))
+    out_filename = '{:s}.reduced.json'.format('.'.join(filename.split('.')[0:-1]))
+    if os.path.exists(out_filename):
+        os.remove(out_filename)
+    n = 0
+    n_cities = len(result)
+    with open(out_filename, 'w') as json_file:
+        for city in result:
+            n += 1
+            print("\rWriting result to {:s} ... {:d}%".format(out_filename, 100 * n // n_cities), end="", flush=True)
+            json.dump(city, json_file, cls=JSONCityEncoder, ensure_ascii=False)
+            json_file.write("\n")
+    print("\nCompressing file ...")
+    with open(out_filename, 'rb') as json_file:
+        with bz2.BZ2File(out_filename + '.bz2', 'wb', compresslevel=9) as output:
+            copyfileobj(json_file, output)
 
-    out_filename = "city.list.reduced.pickle.bz2"
-    print("Writing result to {} ...".format(out_filename))
-    with bz2.open(out_filename, "wb", compresslevel=9) as out_file:
-        pickle.dump(result, out_file)
-
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main(sys.argv[1])
