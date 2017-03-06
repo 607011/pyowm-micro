@@ -11,6 +11,7 @@ import json
 from bisect import bisect_left, bisect_right
 from operator import itemgetter
 from shutil import copyfileobj
+from math import cos, pi
 import bz2
 import os
 import sys
@@ -20,13 +21,10 @@ from pyowm.city import City
 
 class JSONCityEncoder(json.JSONEncoder):
     def default(self, o):
-        if isinstance(o, City):
-            return self.encode(o)
-        else:
-            return json.JSONEncoder.default(self, o)
+        return self.encode(o) if isinstance(o, City) else json.JSONEncoder.default(self, o)
 
     def encode(self, o):
-        return {'_id': o.city_id, 'name': o.name, 'coord': {'lat': o.pos.lat, 'lon': o.pos.lon}, 'country': o.country}
+        return {'_id': o.city_id, 'name': o.name, 'coord': {'lat': o.coord.lat, 'lon': o.coord.lon}, 'country': o.country}
 
 
 class SortedCityCollection(object):
@@ -118,9 +116,9 @@ class SortedCityCollection(object):
         del self._keys[i]
         del self._items[i]
 
-    def range(self, item_a, item_b):
-        i = bisect_right(self._keys, item_a)
-        j = bisect_left(self._keys, item_b)
+    def range(self, l, r):
+        i = bisect_right(self._keys, l)
+        j = bisect_left(self._keys, r)
         return self._items[i:j]
 
 
@@ -136,27 +134,28 @@ def main(filename):
             cities.append(city)
             cities_by_id[city.city_id] = city
             n += 1
-            print("\rLoading city list ... {:d}%".format(100 * n // n_lines), end="", flush=True)
+            print("\rLoading city list ... {:d}%".format(100 * n // n_lines), end='', flush=True)
     print("\nPre-filtering ...")
-    cities_lat = SortedCityCollection(cities, key=lambda c: c.pos.lat, _id=lambda c: c.city_id)
-    cities_lon = SortedCityCollection(cities, key=lambda c: c.pos.lon, _id=lambda c: c.city_id)
-    dlat2 = 0.003  # TODO: calculate dlat and dlon with respect to latitude;
-    dlon2 = 0.003  # these are pessimistic estimates for geocoords in central Europe
+    cities_lat = SortedCityCollection(cities, key=lambda c: c.coord.lat, _id=lambda c: c.city_id)
+    cities_lon = SortedCityCollection(cities, key=lambda c: c.coord.lon, _id=lambda c: c.city_id)
     result = []
     n = 0
     min_dist = 2200.0
+    earth_radius = 6371e3
+    dlat2 = pi / 4 * min_dist / earth_radius
     while len(cities) > 0:
         ref_city = cities.pop(0)
         cities_lat.remove_by_id(ref_city.city_id)
         cities_lon.remove_by_id(ref_city.city_id)
-        cities_by_lat = cities_lat.range(ref_city.pos.lat - dlat2, ref_city.pos.lat + dlat2)
-        cities_by_lon = cities_lon.range(ref_city.pos.lon - dlon2, ref_city.pos.lon + dlon2)
+        dlon2 = pi / 2 * min_dist / earth_radius * cos(pi * ref_city.coord.lat / 180)
+        cities_by_lat = cities_lat.range((ref_city.coord.lat - dlat2) % 90, (ref_city.coord.lat + dlat2) % 90)
+        cities_by_lon = cities_lon.range((ref_city.coord.lon - dlon2) % 180, (ref_city.coord.lon + dlon2) % 180)
         ids = set([c.city_id for c in cities_by_lat]).intersection([c.city_id for c in cities_by_lon])
         merged = [cities_by_id[i] for i in ids]
-        if all([ref_city.pos.range_to(c.pos) > min_dist for c in merged]):
+        if all([ref_city.coord.range_to(c.coord) > min_dist for c in merged]):
             result.append(ref_city)
         n += 1
-        print("\rFiltering ... {:d}%".format(100 * n // n_lines), end="", flush=True)
+        print("\rFiltering ... {:d}%".format(100 * n // n_lines), end='', flush=True)
     n_removed = n_lines - len(result)
     print("\nRemoved {:d} redundant cities, {:.1f}% remaining.".format(n_removed, 100 - 100 * n_removed // n_lines))
     out_filename = '{:s}.reduced.json'.format('.'.join(filename.split('.')[0:-1]))
@@ -167,13 +166,14 @@ def main(filename):
     with open(out_filename, 'w') as json_file:
         for city in result:
             n += 1
-            print("\rWriting result to {:s} ... {:d}%".format(out_filename, 100 * n // n_cities), end="", flush=True)
+            print("\rWriting result to {:s} ... {:d}%".format(out_filename, 100 * n // n_cities), end='', flush=True)
             json.dump(city, json_file, cls=JSONCityEncoder, ensure_ascii=False)
             json_file.write("\n")
-    print("\nCompressing file ...")
+    print("\nCompressing file ...", end='', flush=True)
     with open(out_filename, 'rb') as json_file:
         with bz2.BZ2File(out_filename + '.bz2', 'wb', compresslevel=9) as output:
             copyfileobj(json_file, output)
+    print("\nReady.")
 
 if __name__ == '__main__':
     main(sys.argv[1])

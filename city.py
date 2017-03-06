@@ -51,16 +51,16 @@ class City:
             if isinstance(city, City):
                 self.city_id = city.city_id
                 self.name = city.name
-                self.pos = city.pos
+                self.coord = city.coord
                 self.country = city.country
             elif isinstance(city, dict):
                 self.city_id = city['_id']
                 self.name = city['name']
-                self.pos = GeoCoord(city['coord']['lat'], city['coord']['lon'])
+                self.coord = GeoCoord(city['coord']['lat'], city['coord']['lon'])
                 self.country = city['country']
 
     def __str__(self):
-        return '{} ({:7.5f} {:7.5f}) {} {}'.format(self.name, self.pos.lat, self.pos.lon, self.country, self.city_id)
+        return '{} ({:7.5f} {:7.5f}) {} {}'.format(self.name, self.coord.lat, self.coord.lon, self.country, self.city_id)
 
 
 class CityList:
