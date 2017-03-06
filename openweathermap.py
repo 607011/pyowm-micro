@@ -144,31 +144,25 @@ class OpenWeatherMap(OpenWeatherMapCore):
         return [WeatherForecast(f) for f in forecasts] if type(forecasts) is list else []
 
 
-BURGDORF_DE = 2941405
-HANNOVER_DE = 2910831
+_BURGDORF_DE = 2941405
+_HANNOVER_DE = 2910831
 
 
-def main(api_key):
+if __name__ == "__main__":
+    from city import CityList
+    api_key = sys.argv[1]
     owm = OpenWeatherMap(api_key)
-
-    for forecast in owm.forecast(BURGDORF_DE, 16):
+    for forecast in owm.forecast(_BURGDORF_DE, 16):
         print("{} {:s}, lo {:.0f} °C, hi {:.0f} °C, wind {:.0f} km/h from {:s}"
               .format(forecast.date.strftime("%a %d.%m. %H:%M"),
                       forecast.description,
                       forecast.temp_min, forecast.temp_max,
                       forecast.wind_speed,
                       degree_to_meteo(forecast.wind_degrees)))
-
     print("Loading city list ... ")
     cities = CityList()
-    cities.read("tools/city.list.reduced.pickle.bz2")
+    cities.read("city.list.reduced.json.bz2")
     for city in cities.find("Hannover"):
         print(city)
-
-
-if __name__ == "__main__":
-    from city import CityList
-    main(sys.argv[1])
 else:
-    from city import CityList
-
+    from . city import CityList
