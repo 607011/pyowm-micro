@@ -44,9 +44,9 @@ def main(filename):
             n += 1
             print("\rLoading city list ... {:d}%".format(100 * n // n_lines), end='', flush=True)
     print("\nSorting by latitude ... ", end='', flush=True)
-    cities_lat = SortedCityCollection(cities, key=lambda c: c.coord.lat, _id=lambda c: c.city_id)
+    cities_lat = SortedCityCollection(cities, key=lambda c: c.coord.lat)
     print("\nSorting by longitude ... ", end='', flush=True)
-    cities_lon = SortedCityCollection(cities, key=lambda c: c.coord.lon, _id=lambda c: c.city_id)
+    cities_lon = SortedCityCollection(cities, key=lambda c: c.coord.lon)
     print()
     result = []
     n = 0
@@ -79,7 +79,7 @@ def main(filename):
             print("\rWriting result to {:s} ... {:d}%".format(out_filename, 100 * n // n_cities), end='', flush=True)
             json.dump(city, json_file, cls=JSONCityEncoder, ensure_ascii=False)
             json_file.write("\n")
-    print("\nCompressing file ...", end='', flush=True)
+    print("\nCompressing file ... ", end='', flush=True)
     with open(out_filename, 'rb') as json_file:
         with bz2.BZ2File(out_filename + '.bz2', 'wb', compresslevel=9) as output:
             copyfileobj(json_file, output)

@@ -89,7 +89,7 @@ class City:
 
     city_id = property(_get_city_id, _set_city_id, None, 'ID')
     name = property(_get_name, _set_name, None, 'name')
-    coord = property(_get_coord, _set_coord, None, 'geo coords (lat, lon)')
+    coord = property(_get_coord, _set_coord, None, 'geo coords')
     country = property(_get_country, _set_country, None, 'country code')
 
     def __str__(self):
@@ -129,10 +129,10 @@ class CityList:
 
 
 class SortedCityCollection(object):
-    def __init__(self, iterable=(), key=None, _id=None):
+    def __init__(self, iterable=(), key=(lambda x: x), _id=lambda c: c.city_id):
         self._given_key = key
-        self._key = (lambda x: x) if key is None else key
-        self._id = (lambda x: x) if _id is None else _id
+        self._key = key
+        self._id = _id
 
         decorated = sorted([(self._key(item), item) for item in iterable], key=itemgetter(0))
         self._keys = [k for k, item in decorated]
@@ -155,7 +155,7 @@ class SortedCityCollection(object):
     key = property(_getkey, _setkey, _delkey, 'key function')
 
     def clear(self):
-        self.__init__([], self._key)
+        self.__init__([], self._key, self._id)
 
     def copy(self):
         return self.__class__(self, self._key, self._id)
