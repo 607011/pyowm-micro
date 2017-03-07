@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #  -*- coding: utf-8 -*-
 
-from math import sin, cos, atan2, sqrt
+from math import sin, cos, atan2, sqrt, pi
 from collections import defaultdict
 import json
 import bz2
@@ -10,10 +10,6 @@ from operator import itemgetter
 
 
 class GeoCoord:
-    Radius = 6378.137e3
-    Radius2 = 6356.752315e3
-    Eccentricity = (Radius - Radius2) / Radius
-
     def __init__(self, lat, lon):
         self._lat = lat
         self._lon = lon
@@ -34,10 +30,10 @@ class GeoCoord:
     lon = property(_get_lon, _set_lon, None, 'longitude')
 
     def range_to(self, other):
-        φ1 = 8.72664626e-3 * self._lat
-        φ2 = 8.72664626e-3 * other.lat
-        dφ = 8.72664626e-3 * (other.lat - self._lat)
-        dλ = 8.72664626e-3 * (other.lon - self._lon)
+        φ1 = pi / 360 * self._lat
+        φ2 = pi / 360 * other.lat
+        dφ = pi / 360 * (other.lat - self._lat)
+        dλ = pi / 360 * (other.lon - self._lon)
         a = sin(dφ) * sin(dφ) + cos(φ1) * cos(φ2) * sin(dλ) * sin(dλ)
         return 6371.0072e3 * 2 * atan2(sqrt(a), sqrt(1 - a))
 

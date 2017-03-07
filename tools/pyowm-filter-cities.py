@@ -13,7 +13,6 @@ from math import cos, pi
 import bz2
 import os
 import sys
-sys.path.insert(0, "{}/../..".format(os.getcwd()))
 from pyowm.city import City, SortedCityCollection
 
 
