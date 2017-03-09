@@ -9,91 +9,59 @@ from bisect import bisect_left, bisect_right
 from operator import itemgetter
 
 
-class GeoCoord:
+class GeoCoord(dict):
     def __init__(self, lat, lon):
-        self._lat = lat
-        self._lon = lon
+        self.lat = lat
+        self.lon = lon
 
-    def _get_lat(self):
-        return self._lat
+    def __getattr__(self, attr):
+        return self[attr]
 
-    def _set_lat(self, lat):
-        self._lat = lat
-
-    def _get_lon(self):
-        return self._lon
-
-    def _set_lon(self, lon):
-        self._lon = lon
-
-    lat = property(_get_lat, _set_lat, None, 'latitude')
-    lon = property(_get_lon, _set_lon, None, 'longitude')
+    def __setattr__(self, attr, value):
+        self[attr] = value
 
     def range_to(self, other):
-        φ1 = pi / 360 * self._lat
+        φ1 = pi / 360 * self.lat
         φ2 = pi / 360 * other.lat
-        dφ = pi / 360 * (other.lat - self._lat)
-        dλ = pi / 360 * (other.lon - self._lon)
+        dφ = pi / 360 * (other.lat - self.lat)
+        dλ = pi / 360 * (other.lon - self.lon)
         a = sin(dφ) * sin(dφ) + cos(φ1) * cos(φ2) * sin(dλ) * sin(dλ)
         return 6371.0072e3 * 2 * atan2(sqrt(a), sqrt(1 - a))
 
     def __str__(self):
-        return '({:7.5f},{:7.5f})'.format(self._lat, self._lon)
+        return '({:7.5f},{:7.5f})'.format(self.lat, self.lon)
 
 
-class City:
-    def __init__(self, city):
-        if isinstance(city, dict):
-            self._city_id = city['_id']
-            self._name = city['name']
-            self._coord = GeoCoord(city['coord']['lat'], city['coord']['lon'])
-            self._country = city['country']
-        elif isinstance(city, City):
-            self._city_id = city.city_id
-            self._name = city.name
-            self._coord = city.coord
-            self._country = city.country
-        else:
-            self._city_id = None
-            self._name = None
-            self._coord = None
-            self._country = None
+class City(dict):
+    def __init__(self, _city=dict()):
+        if isinstance(_city, City):
+            self._id = city.city_id
+            self.name = city.name
+            self.coord = city.coord
+            self.geo = {'type': 'Point', 'coordinates': [self.coord.lon, self.coord.lat]}
+            # self.geo = [self.coord.lon, self.coord.lat]
+            self.country = city.country
+        elif isinstance(_city, dict):
+            self._id = _city.get('_id')
+            self.name = _city.get('name')
+            self.coord = GeoCoord(_city.get('coord', {}).get('lat'),
+                                  _city.get('coord', {}).get('lon'))
+            self.geo = {'type': 'Point', 'coordinates': [self.coord.lon, self.coord.lat]}
+            # self.geo = [self.coord.lon, self.coord.lat]
+            self.country = _city.get('country')
 
-    def _get_city_id(self):
-        return self._city_id
+    def __getattr__(self, attr):
+        return self[attr]
 
-    def _set_city_id(self, city_id):
-        self._city_id = city_id
-
-    def _get_name(self):
-        return self._name
-
-    def _set_name(self, name):
-        self._name = name
-
-    def _get_coord(self):
-        return self._coord
-
-    def _set_coord(self, coord):
-        self._lat = coord
-
-    def _get_country(self):
-        return self._country
-
-    def _set_country(self, country):
-        self._country = country
-
-    city_id = property(_get_city_id, _set_city_id, None, 'ID')
-    name = property(_get_name, _set_name, None, 'name')
-    coord = property(_get_coord, _set_coord, None, 'geo coords')
-    country = property(_get_country, _set_country, None, 'country code')
+    def __setattr__(self, attr, value):
+        self[attr] = value
 
     def __str__(self):
-        return '{} ({:7.5f} {:7.5f}) {} {}'.format(self._name,
-                                                   self._coord.lat,
-                                                   self._coord.lon,
-                                                   self._country,
-                                                   self._city_id)
+        return '{} ({:7.5f} {:7.5f}) {} {}'.format(self.name,
+                                                   self.coord.lat,
+                                                   self.coord.lon,
+                                                   self.country,
+                                                   self._id)
 
 
 class CityList:
@@ -101,8 +69,17 @@ class CityList:
         self.countries = []
         self.cities = []
         self.cities_by_country = defaultdict(list)
-        if city_list_filename:
+        if isinstance(city_list_filename, str):
             self.read(city_list_filename)
+
+    def __iter__(self):
+        return iter(self.cities)
+
+    def __len__(self):
+        return len(self.cities)
+
+    def __getitem__(self, i):
+        return self.cities[i]
 
     def read(self, city_list_filename):
         with bz2.open(city_list_filename, 'r') as city_file:
@@ -217,3 +194,11 @@ class SortedCityCollection(object):
         i = bisect_right(self._keys, l)
         j = bisect_left(self._keys, r)
         return self._items[i:j]
+
+
+if __name__ == '__main__':
+    print('Loading city list ... ')
+    cities = CityList()
+    cities.read('city.list.reduced.json.bz2')
+    for city in cities.find('Hannover'):
+        print(' - {:s}, {:s} @ {:.5}, {:.5}'.format(city.name, city.country, city.coord.lat, city.coord.lon))
