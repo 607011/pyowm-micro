@@ -17,6 +17,11 @@ from datetime import datetime
 from pyowm.city import CityList
 
 
+__author__ = 'Oliver Lau <oliver@ersatzworld.net>'
+__website__ = 'https://github.com/ola-ct/pyowm-micro'
+__license__ = 'GPLv3+'
+
+
 def degree_to_meteo(deg):
     return ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][int((deg - 22.5) % 360) // 45]
 
