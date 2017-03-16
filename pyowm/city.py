@@ -114,14 +114,19 @@ class CityList:
     def __getitem__(self, i):
         return self.cities[i]
 
-    def read(self, city_list_filename):
+    def read(self, city_list_filename, callback=None):
         with bz2.open(city_list_filename, 'r') as city_file:
             lines = city_file.readlines()
+            n = 0
+            n_lines = len(lines)
             for line in lines:
                 c = City(json.loads(line.decode('utf-8')))
                 self.cities.append(c)
                 self.countries.append(c.country)
                 self.cities_by_country[c.country].append(c)
+                if callback:
+                    n += 1
+                    callback(100 * n // n_lines)
         self.countries = sorted(list(set(self.countries)))
 
     def find(self, name, country=None):
