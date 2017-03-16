@@ -103,7 +103,6 @@ def main(filename, min_dist):
     if os.path.exists(out_filename):
         os.remove(out_filename)
 
-    thread.join()
     print('Ready.')
 
 
