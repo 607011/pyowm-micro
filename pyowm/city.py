@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #  -*- coding: utf-8 -*-
 
-from math import sin, cos, atan2, sqrt, pi
+from math import sin, cos, atan2, sqrt, radians
 from collections import defaultdict
 import json
 import bz2
@@ -29,15 +29,15 @@ class GeoCoord(dict):
         self[attr] = value
 
     def range_to(self, other):
-        φ1 = pi / 360 * self.lat
-        φ2 = pi / 360 * other.lat
-        dφ = pi / 360 * (other.lat - self.lat)
-        dλ = pi / 360 * (other.lon - self.lon)
+        φ1 = radians(self.lat)
+        φ2 = radians(other.lat)
+        dφ = radians(other.lat - self.lat)
+        dλ = radians(other.lon - self.lon)
         a = sin(dφ) * sin(dφ) + cos(φ1) * cos(φ2) * sin(dλ) * sin(dλ)
         return GeoCoord.R * 2 * atan2(sqrt(a), sqrt(1 - a))
 
     def distance_3d(self, other):
-        return self.cartesian.distance(other.cartesian)
+        return self.cartesian.distance_to(other.cartesian)
 
     def __str__(self):
         return '({:7.5f},{:7.5f})'.format(self.lat, self.lon)
@@ -52,7 +52,7 @@ class Point3D(tuple):
         self.y = y
         self.z = z
 
-    def distance(self, other):
+    def distance_to(self, other):
         dx = other.x - self.x
         dy = other.y - self.y
         dz = other.z - self.z
@@ -60,6 +60,8 @@ class Point3D(tuple):
 
     @staticmethod
     def from_lat_lon(lat, lon):
+        lat = radians(lat)
+        lon = radians(lon)
         return Point3D(GeoCoord.R * cos(lat) * cos(lon),
                        GeoCoord.R * cos(lat) * sin(lon),
                        GeoCoord.R * sin(lat))
