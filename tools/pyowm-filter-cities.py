@@ -72,9 +72,9 @@ def main(filename, min_dist):
         if len(tree.query_ball_point(ref_city.coord.cartesian, min_dist)) <= 1:
             result.append(ref_city)
         n += 1
-        print("\rFiltering ... {:d}% #{:07d}  [{:.2f}s]"
-              .format(100 * n // n_lines, ref_city._id, stopwatch.elapsed()), end='', flush=True)
-    print()
+        print("\rFiltering ... {:d}% #{:07d} "
+              .format(100 * n // n_lines, ref_city._id), end='', flush=True)
+    print(' [{:.2f}s]'.format(stopwatch.elapsed()))
     n_removed = n_lines - len(result)
     print('Removed {:d} redundant cities, {:.1f}% remaining.'.format(n_removed, 100 - 100 * n_removed // n_lines))
     out_filename = '{:s}.reduced.json'.format('.'.join(filename.split('.')[0:-1]))
